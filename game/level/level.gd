@@ -48,6 +48,9 @@ func _ready() -> void:
 	Settings.apply_graphics_settings(get_window(), world_environment.environment, self)
 	setup_lightmapgi()
 	_setup_navigation()
+	# Отладочная надпись (FPS и т.п.) из демо — скрыта, включается клавишей F3.
+	if has_node("Debug"):
+		$Debug.visible = false
 
 	touch = TouchControlsScript.new()
 	add_child(touch)

@@ -48,7 +48,7 @@ func _physics_process(delta: float) -> void:
 @rpc("call_local")
 func explode() -> void:
 	animation_player.play(&"explode")
-	if light_on_hit and Settings.config_file.get_value("rendering", "shadow_mapping") and not Settings.is_mobile:
+	if light_on_hit and Settings.config_file.get_value("rendering", "shadow_mapping") and not Settings.is_mobile and not Settings.is_web:
 		omni_light.shadow_enabled = true
 
 

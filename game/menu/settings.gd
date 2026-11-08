@@ -91,6 +91,9 @@ func load_settings() -> void:
 	if first_run:
 		# В браузере по умолчанию ставим низкое качество, в приложении — среднее.
 		set_quality(Quality.LOW if is_web else Quality.MEDIUM)
+	else:
+		# Обновляем значения пресета (могли измениться в новой версии игры).
+		set_quality(int(config_file.get_value("video", "quality")))
 
 
 func save_settings() -> void:
@@ -110,13 +113,13 @@ func set_quality(q: int) -> void:
 	config_file.set_value("video", "quality", q)
 	match q:
 		Quality.LOW:
-			config_file.set_value("video", "resolution_scale", 0.6)
+			config_file.set_value("video", "resolution_scale", 0.5)
 			config_file.set_value("rendering", "shadow_mapping", false)
 			config_file.set_value("rendering", "gi_quality", GIQuality.LOW)
 			config_file.set_value("rendering", "bloom", false)
 			config_file.set_value("rendering", "msaa", Viewport.MSAA_DISABLED)
 		Quality.MEDIUM:
-			config_file.set_value("video", "resolution_scale", 0.75)
+			config_file.set_value("video", "resolution_scale", 0.7)
 			config_file.set_value("rendering", "shadow_mapping", true)
 			config_file.set_value("rendering", "gi_quality", GIQuality.LOW)
 			config_file.set_value("rendering", "bloom", true)

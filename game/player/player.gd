@@ -25,7 +25,6 @@ const MAX_HP: float = 100.0
 const REGEN_DELAY: float = 6.0
 const REGEN_PER_SEC: float = 5.0
 
-const BulletScene: PackedScene = preload("res://player/bullet/bullet.tscn")
 
 ## Оружие. unlock_wave — с какой волны доступно.
 const WEAPONS: Array[Dictionary] = [
@@ -83,6 +82,9 @@ func _ready() -> void:
 	orientation = player_model.global_transform
 	orientation.origin = Vector3()
 	add_to_group(&"player")
+	# В демо здесь был «прогрев» тяжёлого снаряда с GPU-частицами — он больше не нужен.
+	if has_node(^"BulletCache"):
+		$BulletCache.queue_free()
 	for w in WEAPONS:
 		ammo.append(w.mag)
 	if not multiplayer.is_server():
@@ -304,15 +306,16 @@ func try_shoot() -> void:
 				side = Vector3.RIGHT
 			var up := side.cross(base_dir).normalized()
 			dir = (base_dir + side * randf_range(-1, 1) * tan(spread) + up * randf_range(-1, 1) * tan(spread)).normalized()
-		var bullet: CharacterBody3D = BulletScene.instantiate()
+		var bullet := FastBullet.new()
 		bullet.speed = w.speed
 		bullet.damage = w.damage
 		bullet.shooter = self
-		bullet.light_on_hit = (i == 0)
-		get_parent().add_child(bullet, true)
-		bullet.global_transform.origin = shoot_origin
-		bullet.look_at(shoot_origin + dir)
-		bullet.add_collision_exception_with(self)
+		bullet.dir = dir
+		bullet.thickness = w.size * 1.4
+		bullet.exclude = [get_rid()]
+		get_parent().add_child(bullet)
+		bullet.global_position = shoot_origin
+		bullet.look_at(shoot_origin + dir, Vector3.UP if absf(dir.y) < 0.99 else Vector3.RIGHT)
 	shoot.rpc()
 	_emit_ammo()
 	if ammo[weapon_index] <= 0:

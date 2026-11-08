@@ -77,6 +77,7 @@ func _ready() -> void:
 	hud.set_hp(player.hp, Player.MAX_HP)
 	_on_weapon_changed(0)
 	hud.banner("ПОСЛЕДНИЙ РУБЕЖ", "Продержитесь как можно дольше", 2.5)
+	_warm_up_effects()
 
 
 ## Облегчение уровня для телефона. Уровень демо рассчитан на мощный ПК:
@@ -123,11 +124,36 @@ func _optimize_for_device() -> void:
 				ranged += 1
 			if mobile and size < 6.0:
 				gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if mobile:
+		# Лампы, которые появляются позже (роботы, эффекты), тоже без теней.
+		get_tree().node_added.connect(func(n: Node) -> void:
+			if n is OmniLight3D or n is SpotLight3D:
+				(n as Light3D).shadow_enabled = false)
 	if mobile and world_environment.environment:
 		# Чуть гуще дымка — далёкие части уровня не рисуются, а исчезают в тумане.
 		world_environment.environment.fog_enabled = true
 		world_environment.environment.fog_density = [0.009, 0.007, 0.005][q]
 	print("Оптимизация: выключено ламп ", hidden_lights, ", дальность прорисовки у ", ranged, " объектов")
+
+
+## Показываем эффекты один раз в самом начале, чтобы телефон заранее подготовил
+## для них графику и не «замирал» при первом выстреле.
+func _warm_up_effects() -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(player):
+		return
+	var cam: Camera3D = player.player_input.camera_camera
+	var front := cam.global_position - cam.global_transform.basis.z * 3.0
+	FastBullet.spawn_sparks(spawned_nodes, front, cam.global_transform.basis.z, Color(1, 0.6, 0.2), 4)
+	var b := FastBullet.new()
+	b.dir = -cam.global_transform.basis.z
+	b.speed = 0.0
+	b.life = 0.2
+	spawned_nodes.add_child(b)
+	b.global_position = front
+	var blast: Node3D = preload("res://enemies/red_robot/laser/impact_effect/impact_effect.tscn").instantiate()
+	spawned_nodes.add_child(blast)
+	blast.global_position = front + Vector3.DOWN * 20.0
 
 
 func _setup_navigation() -> void:

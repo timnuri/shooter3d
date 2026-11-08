@@ -8,6 +8,7 @@ const QUALITY_NAMES := ["Низкая", "Средняя", "Высокая"]
 var _quality_btn: Button
 var _invert_btn: Button
 var _assist_btn: Button
+var _fps_btn: Button
 var _value_labels: Dictionary = {}
 
 
@@ -30,8 +31,14 @@ func _ready() -> void:
 	_assist_btn = UIKit.button("", _toggle_assist, 420, 84)
 	row.add_child(_assist_btn)
 
-	_quality_btn = UIKit.button("", _cycle_quality, 860, 84)
-	vb.add_child(_quality_btn)
+	var row2 := HBoxContainer.new()
+	row2.add_theme_constant_override("separation", 18)
+	row2.alignment = BoxContainer.ALIGNMENT_CENTER
+	vb.add_child(row2)
+	_quality_btn = UIKit.button("", _cycle_quality, 520, 84)
+	row2.add_child(_quality_btn)
+	_fps_btn = UIKit.button("", _toggle_fps, 320, 84)
+	row2.add_child(_fps_btn)
 	var note := UIKit.label("Графика меняется при следующем запуске уровня", 22, Color(1, 1, 1, 0.55))
 	vb.add_child(note)
 
@@ -75,6 +82,11 @@ func _toggle_assist() -> void:
 	_refresh()
 
 
+func _toggle_fps() -> void:
+	Settings.set_v("video", "show_fps", not Settings.get_v("video", "show_fps"))
+	_refresh()
+
+
 func _cycle_quality() -> void:
 	var q: int = (int(Settings.get_v("video", "quality")) + 1) % 3
 	Settings.set_quality(q)
@@ -88,7 +100,8 @@ func _refresh() -> void:
 		_value_labels[k].text = ("%d%%" % roundi(val * 100)) if parts[0] == "audio" else ("%.2f" % val)
 	_invert_btn.text = "Инверсия: " + ("вкл" if Settings.get_v("controls", "invert_y") else "выкл")
 	_assist_btn.text = "Помощь в прицеле: " + ("вкл" if Settings.get_v("controls", "aim_assist") else "выкл")
-	_quality_btn.text = "Качество графики: " + QUALITY_NAMES[int(Settings.get_v("video", "quality"))]
+	_quality_btn.text = "Графика: " + QUALITY_NAMES[int(Settings.get_v("video", "quality"))]
+	_fps_btn.text = "Кадры/с: " + ("вкл" if Settings.get_v("video", "show_fps") else "выкл")
 
 
 func _close() -> void:

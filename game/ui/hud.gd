@@ -14,6 +14,8 @@ var _vignette: ColorRect
 var _marker: Control
 var _banner_tween: Tween
 
+var _fps_label: Label
+var _fps_t: float = 0.0
 var _marker_t: float = 0.0
 var _marker_kill: bool = false
 var _hp_ratio: float = 1.0
@@ -80,6 +82,13 @@ func _ready() -> void:
 	_place(_banner_sub, -700, -175, 1400, 60)
 	_banner_sub.modulate.a = 0.0
 
+	# Счётчик кадров — справа сверху, под кнопкой паузы.
+	_fps_label = _make_label(root, 24)
+	_fps_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_place(_fps_label, -560, 130, 530, 34)
+	_fps_label.visible = Settings.get_v("video", "show_fps")
+
 	_marker = Control.new()
 	_marker.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -106,6 +115,10 @@ func _make_label(parent: Control, size: int) -> Label:
 
 
 func _process(delta: float) -> void:
+	_fps_t -= delta
+	if _fps_t <= 0.0 and _fps_label.visible:
+		_fps_t = 0.5
+		_fps_label.text = "%d кадр/с · %d отрисовок" % [Engine.get_frames_per_second(), RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)]
 	_hp_shown = lerpf(_hp_shown, _hp_ratio, minf(delta * 10.0, 1.0))
 	_hp_fill.size.x = 374.0 * _hp_shown
 	var low := _hp_ratio < 0.3

@@ -36,6 +36,7 @@ var DEFAULTS := {
 		resolution_scale = 1.0,
 		scale_filter = Viewport.SCALING_3D_MODE_BILINEAR,
 		quality = Quality.MEDIUM,
+		show_fps = true,
 	},
 	rendering = {
 		taa = false,
@@ -115,7 +116,7 @@ func set_quality(q: int) -> void:
 			config_file.set_value("rendering", "bloom", false)
 			config_file.set_value("rendering", "msaa", Viewport.MSAA_DISABLED)
 		Quality.MEDIUM:
-			config_file.set_value("video", "resolution_scale", 0.8)
+			config_file.set_value("video", "resolution_scale", 0.75)
 			config_file.set_value("rendering", "shadow_mapping", true)
 			config_file.set_value("rendering", "gi_quality", GIQuality.LOW)
 			config_file.set_value("rendering", "bloom", true)

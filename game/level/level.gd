@@ -51,6 +51,7 @@ func _ready() -> void:
 	# Отладочная надпись (FPS и т.п.) из демо — скрыта, включается клавишей F3.
 	if has_node("Debug"):
 		$Debug.visible = false
+	_optimize_for_device()
 
 	touch = TouchControlsScript.new()
 	add_child(touch)
@@ -68,6 +69,7 @@ func _ready() -> void:
 	add_player(1, spawn_point)
 	player.global_position = PLAYER_START
 	player.initial_position = PLAYER_START
+	player.player_input.camera_camera.far = [100.0, 140.0, 180.0][int(Settings.get_v("video", "quality"))]
 
 	hud.set_wave(1)
 	hud.set_kills(0)
@@ -75,6 +77,57 @@ func _ready() -> void:
 	hud.set_hp(player.hp, Player.MAX_HP)
 	_on_weapon_changed(0)
 	hud.banner("ПОСЛЕДНИЙ РУБЕЖ", "Продержитесь как можно дольше", 2.5)
+
+
+## Облегчение уровня для телефона. Уровень демо рассчитан на мощный ПК:
+## ~3000 объектов для отрисовки и 13 прожекторов с тенями (каждый перерисовывает сцену заново).
+func _optimize_for_device() -> void:
+	var lightmap_on := lightmap_gi != null and lightmap_gi.visible
+	var mobile := Settings.is_mobile or Settings.is_web
+	var q: int = Settings.get_v("video", "quality")
+	# Дальность прорисовки мелких предметов (метры) по качеству.
+	var small_range: float = [25.0, 40.0, 60.0][q]
+	var mid_range: float = [55.0, 80.0, 120.0][q]
+	var hidden_lights := 0
+	var ranged := 0
+	for n in find_children("*", "", true, false):
+		if n is Light3D:
+			var l := n as Light3D
+			if l is DirectionalLight3D:
+				continue
+			# Свет «запечён» в карту освещения — в реальном времени он не нужен.
+			if lightmap_on and l.light_bake_mode == Light3D.BAKE_STATIC:
+				l.visible = false
+				hidden_lights += 1
+			elif mobile:
+				l.shadow_enabled = false
+		elif n is GeometryInstance3D and not (n is GPUParticles3D or n is CPUParticles3D):
+			var gi := n as GeometryInstance3D
+			if gi.visibility_range_end > 0.0:
+				continue
+			var aabb := gi.get_aabb()
+			var size := aabb.size.length() * gi.global_transform.basis.get_scale().length() / sqrt(3.0)
+			if size < 3.0:
+				gi.visibility_range_end = small_range
+				gi.visibility_range_end_margin = 4.0
+				gi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+				ranged += 1
+			elif size < 10.0:
+				gi.visibility_range_end = mid_range
+				gi.visibility_range_end_margin = 6.0
+				ranged += 1
+			else:
+				# Крупные части здания: далёкие всё равно скрыты туманом.
+				gi.visibility_range_end = clampf(size * 3.0, 80.0, 200.0) * [0.6, 0.8, 1.0][q]
+				gi.visibility_range_end_margin = 10.0
+				ranged += 1
+			if mobile and size < 6.0:
+				gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if mobile and world_environment.environment:
+		# Чуть гуще дымка — далёкие части уровня не рисуются, а исчезают в тумане.
+		world_environment.environment.fog_enabled = true
+		world_environment.environment.fog_density = [0.009, 0.007, 0.005][q]
+	print("Оптимизация: выключено ламп ", hidden_lights, ", дальность прорисовки у ", ranged, " объектов")
 
 
 func _setup_navigation() -> void:

@@ -1,0 +1,124 @@
+name: Сборка игры
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: build
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  web:
+    name: Версия для браузера
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Кэш Godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}
+
+      - name: Скачать Godot
+        run: tools/ci_install_godot.sh
+
+      - name: Подготовить проект
+        env:
+          TEXTURE_LIMIT: "512"
+        run: tools/prepare.sh build/project
+
+      - name: Импорт и проверка скриптов
+        run: |
+          cp tools/check_scripts.gd build/project/
+          ~/godot/godot --headless --import --path build/project
+          ~/godot/godot --headless --path build/project -s check_scripts.gd
+          rm build/project/check_scripts.gd
+
+      - name: Экспорт Web
+        run: |
+          mkdir -p build/export/web
+          ~/godot/godot --headless --path build/project --export-release "Web" ../export/web/index.html
+          ls -la build/export/web
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/export/web
+
+  deploy:
+    name: Публикация ссылки
+    needs: web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  android:
+    name: Приложение Android (APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Кэш Godot
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}
+
+      - name: Скачать Godot
+        run: tools/ci_install_godot.sh
+
+      - name: Подготовить проект
+        env:
+          TEXTURE_LIMIT: "1024"
+        run: tools/prepare.sh build/project
+
+      - name: Настроить Android SDK для Godot
+        run: |
+          mkdir -p ~/.config/godot
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          JDK="${JAVA_HOME_17_X64:-$JAVA_HOME}"
+          printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\n' "$SDK" "$JDK" > ~/.config/godot/editor_settings-4.7.tres
+          cat ~/.config/godot/editor_settings-4.7.tres
+          ls "$SDK/build-tools"
+
+      - name: Импорт
+        run: ~/godot/godot --headless --import --path build/project
+
+      - name: Экспорт APK
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ github.workspace }}/android/test-release.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: shooter3d
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: shooter3d
+        run: |
+          mkdir -p build/export/android
+          ~/godot/godot --headless --path build/project --export-release "Android" ../export/android/shooter3d.apk
+          ls -la build/export/android
+          test -f build/export/android/shooter3d.apk
+
+      - name: Выложить APK в Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest build/export/android/shooter3d.apk \
+            --title "Последний рубеж — свежая сборка" \
+            --notes "Сборка из коммита ${GITHUB_SHA::7}. Скачайте shooter3d.apk и установите на телефон." \
+            --target "$GITHUB_SHA"

@@ -126,14 +126,28 @@ func _optimize_for_device() -> void:
 				gi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if mobile:
 		# Лампы, которые появляются позже (роботы, эффекты), тоже без теней.
-		get_tree().node_added.connect(func(n: Node) -> void:
-			if n is OmniLight3D or n is SpotLight3D:
-				(n as Light3D).shadow_enabled = false)
+		get_tree().node_added.connect(_lighten_node)
 	if mobile and world_environment.environment:
 		# Чуть гуще дымка — далёкие части уровня не рисуются, а исчезают в тумане.
 		world_environment.environment.fog_enabled = true
 		world_environment.environment.fog_density = [0.009, 0.007, 0.005][q]
 	print("Оптимизация: выключено ламп ", hidden_lights, ", дальность прорисовки у ", ranged, " объектов")
+
+
+## Облегчение эффектов, которые появляются во время игры (лазеры, взрывы роботов).
+func _lighten_node(n: Node) -> void:
+	if n is OmniLight3D or n is SpotLight3D:
+		(n as Light3D).shadow_enabled = false
+	elif n is CPUParticles3D:
+		var p := n as CPUParticles3D
+		var sm := p.mesh as SphereMesh
+		# В демо искры — гладкие шарики по 4000 треугольников каждый.
+		if sm and sm.radial_segments > 8:
+			sm.radial_segments = 6
+			sm.rings = 3
+		if p.amount > 10 and not p.has_meta(&"lightened"):
+			p.set_meta(&"lightened", true)
+			p.amount = maxi(6, int(p.amount * 0.3))
 
 
 ## Показываем эффекты один раз в самом начале, чтобы телефон заранее подготовил

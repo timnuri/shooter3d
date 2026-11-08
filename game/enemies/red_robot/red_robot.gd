@@ -175,7 +175,9 @@ func shoot() -> void:
 	var laser_ember: CPUParticles3D = $RedRobotModel/Armature/Skeleton3D/RayFrom/LaserEmber
 	laser_ember.position = Vector3(0.0, 0.0, -max_dist / 2.0 - mesh_offset)
 	laser_ember.emission_box_extents.z = (max_dist - absf(mesh_offset)) / 2.0
-	if not col.is_empty():
+	# Взрыв от лазера рисуем только на стенах и полу: если он прямо у камеры (попал в игрока),
+	# он закрывает весь экран полупрозрачными частицами — это очень тяжело для телефона.
+	if not col.is_empty() and col.collider != player:
 		var blast = blast_scene.instantiate()
 		get_tree().get_root().add_child(blast)
 		blast.global_transform.origin = col.position
